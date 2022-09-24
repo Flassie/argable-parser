@@ -25,6 +25,41 @@ pub fn parse(input: &str) -> anyhow::Result<Vec<Item>> {
     Ok(items)
 }
 
+pub fn parse_iter(input: &str) -> impl Iterator<Item = Item> {
+    let text = map(text, Item::Text);
+    let placeholder = map(placeholder, Item::Placeholder);
+
+    let item = alt((text, placeholder));
+
+    struct Iter<'a, F>
+    where
+        F: FnMut(&'a str) -> IResult<&'a str, Item>,
+    {
+        input: &'a str,
+        f: F,
+    }
+
+    impl<'a, F> Iterator for Iter<'a, F>
+    where
+        F: FnMut(&'a str) -> IResult<&'a str, Item>,
+    {
+        type Item = Item<'a>;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            if self.input.is_empty() {
+                return None;
+            }
+
+            let (rest, item) = (self.f)(self.input).ok()?;
+            self.input = rest;
+
+            Some(item)
+        }
+    }
+
+    Iter { input, f: item }
+}
+
 pub(crate) fn identifier(input: &str) -> IResult<&str, &str> {
     whitespaced(recognize(pair(
         alt((alpha1, tag("_"))),
@@ -173,11 +208,5 @@ mod tests {
 
             assert_eq!(result.is_ok(), expected);
         }
-    }
-
-    #[test]
-    fn parse_test() {
-        let test = r#"\$ $datetime(format = "%Y") $text(bold, value = 'test \'value\'')"#;
-        println!("{:?}", parse(test));
     }
 }
