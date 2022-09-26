@@ -81,10 +81,18 @@ pub(crate) fn args(input: &str) -> IResult<&str, Vec<Arg>> {
     separated_list0(char(','), flag_or_value)(input)
 }
 
+pub(crate) fn placeholder_ident(input: &str) -> IResult<&str, &str> {
+    recognize(pair(
+        alt((alpha1, tag("_"))),
+        many0_count(alt((alphanumeric1, tag("_")))),
+    ))(input)
+}
+
 pub(crate) fn placeholder(input: &str) -> IResult<&str, Placeholder> {
     let args = delimited(char('('), args, char(')'));
-    let with_args = map(pair(identifier, args), Placeholder::from);
-    let without_args = map(identifier, Placeholder::from);
+
+    let with_args = map(pair(placeholder_ident, args), Placeholder::from);
+    let without_args = map(placeholder_ident, Placeholder::from);
 
     let placeholder = alt((with_args, without_args));
 
